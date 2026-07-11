@@ -1,6 +1,6 @@
 <div align="center">
 
-# X-NERF++
+# XNERF
 
 **Cross-Architecture Neural Execution Rendering Framework**
 
@@ -46,7 +46,7 @@
 
 ## Overview
 
-X-NERF++ is a PyTorch research framework for **defensive malware analysis** that learns a single, shared representation of a binary from six heterogeneous input modalities: a byte-plane image, disassembled API call sequences, a function-level control-flow graph, a memory-access trace, network event tokens, and an architecture-normalized *Intermediate Semantic Representation* (ISR) derived from disassembly. Each modality is encoded independently — a ResNet-18 for byte images, Transformer encoders for API/network token sequences, a Graph Attention Network for control-flow graphs, a dilated temporal CNN for memory traces, and a small Transformer for the ISR stream — and fused by a **Semantic Field Synchronizer (SFS)** into a shared `[batch, time, 2048]` latent sequence.
+XNERF is a PyTorch research framework for **defensive malware analysis** that learns a single, shared representation of a binary from six heterogeneous input modalities: a byte-plane image, disassembled API call sequences, a function-level control-flow graph, a memory-access trace, network event tokens, and an architecture-normalized *Intermediate Semantic Representation* (ISR) derived from disassembly. Each modality is encoded independently — a ResNet-18 for byte images, Transformer encoders for API/network token sequences, a Graph Attention Network for control-flow graphs, a dilated temporal CNN for memory traces, and a small Transformer for the ISR stream — and fused by a **Semantic Field Synchronizer (SFS)** into a shared `[batch, time, 2048]` latent sequence.
 
 That shared representation is pushed through an adversarial **Cross-Architecture Aligner**, which uses a gradient-reversal layer and an instruction-set-architecture discriminator to encourage architecture-invariant features across x86, x64, ARM, ARM64, MIPS, and RISC-V. The pooled, aligned representation feeds a binary malware/benign classifier and a family classifier. In parallel, the synchronized sequence, a memory-context vector, and an architecture embedding are consumed by a coordinate-conditioned network called the **Malware Neural Execution Field (MNEF)** — a NeRF-style implicit function `F(x, t, s, m, a)` over normalized execution position and time — whose output is decoded by a **Trajectory Decoder** into per-timestep attack-stage logits and stage-transition logits, from which a directed graph of inferred behavior stages (`Environment Check → Privilege Escalation → Persistence → Credential Access → Exfiltration`) can be reconstructed.
 
