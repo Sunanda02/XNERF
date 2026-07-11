@@ -1,0 +1,24 @@
+seed: 1337
+data:
+  root: data
+  archive_root: data/archives
+  full_manifest: data/processed/manifest.jsonl
+  train_manifest: data/processed/train_manifest.jsonl
+  val_manifest: data/processed/val_manifest.jsonl
+  test_manifest: data/processed/test_manifest.jsonl
+model:
+  num_classes: 2
+  num_families: 32
+training:
+  batch_size: 32
+  lr: 0.0001
+  epochs: 5
+  grad_accum: 1
+  num_workers: 2
+  checkpoint_dir: checkpoints
+  patience: 2
+  use_amp: false
+  debug_max_batches: 50
+local_inference:
+  checkpoint: models/best.pt
+  note: "Train on Kaggle; use this PC for API/inference only."

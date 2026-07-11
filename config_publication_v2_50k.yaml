@@ -1,0 +1,25 @@
+seed: 1337
+data:
+  root: data
+  full_manifest: data/processed/manifest_publication_v2_50k.jsonl
+  train_manifest: data/processed/train_publication_v2_50k.jsonl
+  val_manifest: data/processed/val_publication_v2_50k.jsonl
+  test_manifest: data/processed/test_publication_v2_50k.jsonl
+
+model:
+  num_classes: 2
+  num_families: 71
+
+training:
+  batch_size: 4
+  lr: 0.0001
+  epochs: 5
+  grad_accum: 4
+  num_workers: 1
+  checkpoint_dir: checkpoints_publication_v2_50k
+  patience: 2
+  use_amp: false
+  #debug_max_batches: 50
+
+local_inference:
+  checkpoint: models/best.pt

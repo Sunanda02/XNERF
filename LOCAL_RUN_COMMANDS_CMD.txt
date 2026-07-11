@@ -1,0 +1,190 @@
+X-NERF local CMD command sheet
+Run these from:
+  D:\GITrepos\XNERF
+
+Activate venv:
+  .venv\Scripts\activate.bat
+
+Check current folder:
+  cd
+
+
+========================
+MANIFEST-FIRST WORKFLOW
+========================
+
+1. Build full manifest only
+
+  python -m xnerf.datasets.build_dataset --root data --out data/processed/manifest.jsonl --split-mode hash --manifest-only
+
+
+2. Check dataset statistics
+
+  python -c "import json; from collections import Counter; rows=[json.loads(l) for l in open(r'D:\GITrepos\XNERF\data\processed\manifest.jsonl',encoding='utf-8')]; print('rows',len(rows)); print('dataset',Counter(r.get('dataset') for r in rows)); print('label',Counter(r.get('label') for r in rows)); print('cache paths',sum(bool(r.get('feature_path') or r.get('isr_path')) for r in rows))"
+
+  python -m xnerf.datasets.build_dataset --out data/processed/manifest.jsonl --validate
+
+
+3. Create balanced subset
+
+  python -c "import json,random; from collections import defaultdict; from pathlib import Path; random.seed(1337); src=Path(r'D:\GITrepos\XNERF\data\processed\manifest.jsonl'); out=Path(r'D:\GITrepos\XNERF\data\processed'); rows=[json.loads(l) for l in src.open(encoding='utf-8')]; buckets=defaultdict(list); [buckets[(r.get('label'),r.get('family','unknown'),r.get('data_type','binary'))].append(r) for r in rows]; subset=[]; cap=200; [subset.extend(random.sample(v,min(cap,len(v)))) for v in buckets.values()]; random.shuffle(subset); n=len(subset); train=subset[:int(n*.8)]; val=subset[int(n*.8):int(n*.9)]; test=subset[int(n*.9):]; files={'manifest_balanced_family_static_dynamic_200.jsonl':subset,'train_manifest_balanced_family_static_dynamic_200.jsonl':train,'val_manifest_balanced_family_static_dynamic_200.jsonl':val,'test_manifest_balanced_family_static_dynamic_200.jsonl':test}; [ (out/name).write_text(''.join(json.dumps(r,sort_keys=True)+'\n' for r in data),encoding='utf-8') for name,data in files.items() ]; print({k:len(v) for k,v in files.items()})"
+
+
+4. Generate cache from subset manifest
+
+Cache generation is resumable.
+If interrupted, rerun the same command.
+Existing cache files will be skipped automatically.
+
+Generate cache once from the parent balanced manifest. The train/val/test subset manifests reuse the same cache files automatically.
+
+  python -m xnerf.datasets.build_dataset --root data --generate-cache-from-manifest data/processed/manifest_balanced_family_static_dynamic_200.jsonl
+
+
+5. Train XNERF on subset
+
+  python -m xnerf.training.train --config config_balanced_small.yaml
+
+
+6. Generate full cache later (optional)
+
+  python -m xnerf.datasets.build_dataset --root data --generate-cache-from-manifest data/processed/manifest.jsonl
+
+
+7. Train final model
+
+  python -m xnerf.training.train --config config.yaml
+
+
+1) Extract archives to data\raw
+
+Extract/copy all archives and plain data files:
+  python -m xnerf.datasets.extract_archives --archive-root data/archives --data-root data
+
+
+2) Build manifests
+
+Full clean manifest rebuild for all datasets.
+This overwrites:
+  data\processed\manifest.jsonl
+  data\processed\train_manifest.jsonl
+  data\processed\val_manifest.jsonl
+  data\processed\test_manifest.jsonl
+
+Command:
+  python -m xnerf.datasets.build_dataset --root data --out data/processed/manifest.jsonl --split-mode hash
+
+Resume manifest build.
+This appends only files that do not have progress markers in:
+  data\cache\manifest_progress
+
+Command:
+  python -m xnerf.datasets.build_dataset --root data --out data/processed/manifest.jsonl --split-mode hash --resume
+
+Build or resume only one dataset:
+  python -m xnerf.datasets.build_dataset --root data --out data/processed/manifest.jsonl --split-mode hash --resume --only-dataset CIC-YNU_IoTMal
+
+Other dataset names currently seen:
+  AndMal2020
+  cape
+  cicmaldroid2020
+  drebin
+  ember
+  MalAPI2019
+  MalBehavD-V1
+  malnet_tiny
+  MalwareAnalysisDatasetsAPICallSequences
+
+
+3) Remove one particular dataset from existing manifests
+
+Set the dataset to remove:
+  set DATASET=cape
+
+Backup all manifest files first:
+  copy data\processed\manifest.jsonl data\processed\manifest.before-remove-%DATASET%.jsonl
+  copy data\processed\train_manifest.jsonl data\processed\train_manifest.before-remove-%DATASET%.jsonl
+  copy data\processed\val_manifest.jsonl data\processed\val_manifest.before-remove-%DATASET%.jsonl
+  copy data\processed\test_manifest.jsonl data\processed\test_manifest.before-remove-%DATASET%.jsonl
+
+Remove that dataset from all manifest JSONL files:
+  python -c "import json,pathlib,os; ds=os.environ['DATASET']; base=pathlib.Path(r'D:\GITrepos\XNERF\data\processed'); files=['manifest.jsonl','train_manifest.jsonl','val_manifest.jsonl','test_manifest.jsonl']; [p.write_text(''.join(line for line in p.open(encoding='utf-8') if json.loads(line).get('dataset') != ds), encoding='utf-8') for p in (base/f for f in files)]"
+
+Remove progress markers for that dataset, so --resume can parse it again:
+  python -c "from pathlib import Path; import hashlib,os; ds=os.environ['DATASET']; raw=Path('data/raw')/ds; prog=Path('data/cache/manifest_progress'); [ (prog/(hashlib.sha256(f'{p.as_posix()}:{p.stat().st_size}:{int(p.stat().st_mtime)}'.encode()).hexdigest()+'.done')).unlink(missing_ok=True) for p in raw.rglob('*') if p.is_file() ]"
+
+Re-append only that dataset:
+  python -m xnerf.datasets.build_dataset ^
+    --root data ^
+    --out data/processed/manifest.jsonl ^
+    --split-mode hash ^
+    --resume ^
+    --only-dataset %DATASET%
+
+
+4) Remove accidental marker rows only
+
+This removes rows whose path ends with .extracted_* from all manifest files:
+  python -c "import json,pathlib; base=pathlib.Path(r'D:\GITrepos\XNERF\data\processed'); files=['manifest.jsonl','train_manifest.jsonl','val_manifest.jsonl','test_manifest.jsonl']; [p.write_text(''.join(line for line in p.open(encoding='utf-8') if not pathlib.PureWindowsPath(json.loads(line).get('path','')).name.startswith('.extracted_')), encoding='utf-8') for p in (base/f for f in files)]"
+
+
+5) Inspect manifests
+
+Count rows per dataset:
+  python -c "import json; from collections import Counter; c=Counter(); f=open(r'D:\GITrepos\XNERF\data\processed\manifest.jsonl','r',encoding='utf-8'); [c.update([x['dataset']]) for x in map(json.loads,f)]; print(c)"
+
+Check dynamic/API rows with empty api_ids:
+  python -c "import json; from collections import Counter; total=Counter(); empty=Counter(); wanted=('cape','MalAPI2019','MalBehavD-V1','MalwareAnalysisDatasetsAPICallSequences'); f=open(r'D:\GITrepos\XNERF\data\processed\manifest.jsonl',encoding='utf-8'); [ (total.update([x.get('dataset')]), empty.update([x.get('dataset')]) if not x.get('api_ids') else None) for x in map(json.loads,f) if x.get('dataset') in wanted ]; print('total',total); print('empty api_ids',empty)"
+
+Validate manifest paths exist:
+  python -m xnerf.datasets.build_dataset --out data/processed/manifest.jsonl --validate
+
+
+6) Local pipeline commands
+
+Build manifests through the local pipeline:
+  python -m xnerf.pipeline.local_run build-manifest --config config.yaml --rebuild-manifests
+
+Run full local pipeline:
+  python -m xnerf.pipeline.local_run pipeline --config config.yaml --rebuild-manifests
+
+Train:
+  python -m xnerf.pipeline.local_run train --config config.yaml
+
+Force retrain:
+  python -m xnerf.pipeline.local_run train --config config.yaml --force
+
+Validate:
+  python -m xnerf.pipeline.local_run validate --config config.yaml
+
+Test:
+  python -m xnerf.pipeline.local_run test --config config.yaml
+
+Zero-shot:
+  python -m xnerf.pipeline.local_run zero-shot --config config.yaml
+
+Export local inference checkpoint:
+  python -m xnerf.pipeline.local_run export --config config.yaml
+
+
+7) Direct training/evaluation commands
+
+Train directly:
+  python -m xnerf.training.train --config config.yaml
+
+Validate directly:
+  python -m xnerf.training.train --config config.yaml --validate-only
+
+Test directly:
+  python -m xnerf.evaluation.test_after_training --config config.yaml --out runs/test
+
+
+8) Useful checks for extracted new datasets
+
+Check MalAPI2019 extracted text exists:
+  dir data\raw\MalAPI2019 /s | findstr all_analysis_data
+
+Check MalwareAnalysisDatasetsAPICallSequences extracted CSV exists:
+  dir data\raw\MalwareAnalysisDatasetsAPICallSequences /s | findstr dynamic_api_call_sequence
+
+python -m xnerf.training.train --config config.yaml --resume checkpoints\last.pt
