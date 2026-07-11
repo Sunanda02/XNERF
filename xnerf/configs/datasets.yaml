@@ -1,0 +1,41 @@
+# Dataset registry for humans and pipeline metadata.
+#
+# The extractor is recursive: any archive under data/archives/<dataset>/<subdir>/
+# is extracted to data/raw/<dataset>/<subdir>/.
+#
+# To add a new dataset later, create:
+#   data/archives/<new_dataset>/<optional_modality_or_split>/
+# and put .zip/.tar/.tar.gz/.tgz archives there. No extractor code change is needed.
+
+datasets:
+  malnet_tiny:
+    required_for_first_run: true
+    subdirectories:
+      images: "Binary image archives"
+      graphs: "Function/call graph archives"
+  AndMal2020:
+    required_for_first_run: false
+    subdirectories:
+      static: "Static Android CSV/features archives"
+      dynamic: "Dynamic before/after reboot archives"
+  cicmaldroid2020:
+    required_for_first_run: false
+    subdirectories:
+      root: "Legacy CICMalDroid archives, if kept separately"
+  drebin:
+    required_for_first_run: false
+    subdirectories:
+      root: "Android metadata/features"
+  ember:
+    required_for_first_run: false
+    subdirectories:
+      root: "PE feature archives"
+  cape:
+    required_for_first_run: false
+    subdirectories:
+      root: "Sandbox JSON reports"
+  virusshare:
+    required_for_first_run: false
+    subdirectories:
+      root: "Authorized raw sample archives only"
+

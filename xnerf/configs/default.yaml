@@ -1,0 +1,17 @@
+seed: 1337
+data:
+  root: data
+  train_manifest: data/processed/manifest.jsonl
+  val_manifest:
+model:
+  num_classes: 2
+  num_families: 32
+training:
+  batch_size: 4
+  lr: 0.0003
+  epochs: 5
+  grad_accum: 2
+  num_workers: 2
+  checkpoint_dir: checkpoints
+  patience: 3
+
